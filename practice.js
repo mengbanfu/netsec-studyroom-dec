@@ -59,19 +59,21 @@ function normalize(raw){
  for(const [id,arr] of Object.entries(raw.records)){if(!has(qmap,id)||!Array.isArray(arr)||!arr.length||!arr.every(r=>obj(r)&&date(r.date)&&['模拟','隔天重测','订正','首轮'].includes(r.mode)&&int(r.auto,0,qmap[id].pts)&&int(r.self,0,qmap[id].pts)&&r.auto+r.self===r.score&&int(r.score,0,qmap[id].pts)))bad();res.records[id]=arr}
  for(const [id,m] of Object.entries(raw.mistakes)){if(!has(qmap,id)||!obj(m)||!date(m.due)||typeof m.corrected!=='boolean')bad();res.mistakes[id]={due:m.due,last:m.last&&date(m.last)?m.last:'',corrected:m.corrected}}
  for(const [k,v] of Object.entries(raw.cases)){if(!/^(?:[1-9]|1[01])$/.test(k)||!int(v,0,2))bad();res.cases[k]=v}
- for(const [id,s] of Object.entries(raw.labs)){if(!LABS.some(l=>l.id===id)||!obj(s))bad();const t={};for(const [k,v] of Object.entries(s)){
+ for(const [id,s] of Object.entries(raw.labs)){if(!LABS.some(l=>l.id===id)||!obj(s))bad();if(SIM_BY_ID.has(id)){if(!simStateValid(SIM_BY_ID.get(id),s))bad();res.labs[id]=s;continue}const t={};for(const [k,v] of Object.entries(s)){
  const opts={mode:['guided','recall','variant'],proto:['AH','ESP'],wrap:['传输','隧道'],kind:['enc','auth'],metric:['ids','bio']};
  if(has(opts,k)&&opts[k].includes(v))t[k]=v;
  else if(k==='written'&&str(v)||k==='guess'&&str(v,8))t[k]=v;
  else if(['kChecked','pkDone','mDone','reverse'].includes(k)&&typeof v==='boolean')t[k]=v;
  else if(['step','traffic','fpick','v','thresh'].includes(k)&&int(v,0,{step:5,traffic:3,fpick:3,v:2,thresh:100}[k]))t[k]=v;
  else if(['order','sel'].includes(k)&&Array.isArray(v)&&v.every(n=>int(n,0,k==='order'?5:4))&&new Set(v).size===v.length)t[k]=v;
+ else if(k==='variantCase'&&int(v,0,EXTRA_VARIANTS[id].length))t[k]=v;
+ else if(k==='variantPicks'&&obj(v)&&Object.entries(v).every(([i,n])=>/^[12]$/.test(i)&&int(n,0,2)))t[k]=v;
  else if(k==='picks'&&obj(v)&&Object.entries(v).every(([i,n])=>/^[0-5]$/.test(i)&&int(n,0,2)))t[k]=v;
  else bad()}res.labs[id]=t}
  function getExam(e){if(!obj(e)||!['done','running'].includes(e.status)||!Number.isSafeInteger(e.start)||e.start<=0||e.end!==e.start+90*60000||!obj(e.answers)||!Number.isSafeInteger(e.submitted))bad();const a={};for(const [k,d] of Object.entries(e.answers)){if(!/^e(?:[1-9]|1\d|20)$/.test(k))bad();a[k]=getDraft(d,qmap[k])}return {status:e.status,start:e.start,end:e.end,submitted:e.submitted,answers:a}}
  if(raw.exam)res.exam=getExam(raw.exam);res.archives=raw.archives.map(getExam);
- if(typeof raw.last==='string'&&focusRouteValid(raw.last))res.last=raw.last;
- if(typeof raw.last==='string'&&/^(?:(chapter|quiz)\/(?:[1-9]|1[01])|read\/(?:[1-9]|1[01])\/\d+|lab\/(kerberos|ipsec|firewall|threshold)|exam|design)$/.test(raw.last))res.last=raw.last;
+ if(typeof raw.last==='string'&&(focusRouteValid(raw.last)||LABS.some(l=>raw.last==='lab/'+l.id)))res.last=raw.last;
+ if(typeof raw.last==='string'&&/^(?:(chapter|quiz)\/(?:[1-9]|1[01])|read\/(?:[1-9]|1[01])\/\d+|exam|design)$/.test(raw.last))res.last=raw.last;
  return res;
 }
 function draw(){clearInterval(timer);expire();const [p,id,sub]=route();const active=['chapter','read','quiz','design','focus'].includes(p)?'chapters':p;document.querySelector('#nav').innerHTML=nav.map(([k,ic,t])=>`<a href="#${k}" ${active===k?'class="active" aria-current="page"':''}>${ico(ic)}${t}</a>`).join('');document.querySelector('#crumb').textContent='研习室　/　'+(nav.find(n=>n[0]===active)?.[2]||'学习首页');

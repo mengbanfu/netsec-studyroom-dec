@@ -20,12 +20,12 @@ const VAR={
 };
 function labState(id){return S.labs[id] ||= {}}
 function labPage(id){
- const lab=LABS.find(x=>x.id===id);if(!lab)return `${pageTitle('互动推演','先做预测，再看验证结果。')}<div class="labCards">${LABS.map(labCard).join('')}</div>`;
+ const lab=LABS.find(x=>x.id===id);if(!lab)return labCatalogue();
  const st=labState(id);const mode=st.mode||'guided';
- const body=mode==='variant'?variant(lab,st):id==='kerberos'?kerb(st):id==='ipsec'?ipsec(st):id==='firewall'?firewall(st):metrics(st);
- return `${pageTitle(lab.name,lab.desc)}<div class="tabs">${[['guided','分步推演'],['recall','闭卷挑战'],['variant','换个场景']].map(([v,t])=>btn(t,'labmode',v,mode===v?'selected':'')).join('')}<a href="#chapter/${lab.ch}">回看章节</a></div><section class="labPanel">${body}</section>`;
+ const body=SIM_BY_ID.has(id)?renderSimulation(lab,st,mode):mode==='variant'?oldVariant(lab,st):id==='kerberos'?kerb(st):id==='ipsec'?ipsec(st):id==='firewall'?firewall(st):metrics(st);
+ return `${pageTitle(lab.name,lab.desc)}<div class="tabs">${[['guided','分步推演'],['recall','闭卷挑战'],['variant','换个场景']].map(([v,t])=>btn(t,'labmode',v,mode===v?'selected':'')).join('')}${SIM_BY_ID.has(id)?A('lab','全部推演'):A('chapter/'+lab.ch,'回看章节')}</div><section class="labPanel">${body}</section>`;
 }
-function variant(lab,st){const [q,o,ans,why]=VAR[lab.id];return `<h2>把原理用到新情景</h2><p>${q}</p>${o.map((x,i)=>btn(x,'variant',i,st.v===i?'selected':'')).join(' ')}${Number.isInteger(st.v)?msg(st.v===ans,why):''}`;}
+
 function msg(ok,why){return `<div role="status" class="notice ${ok?'':'warn'}"><b>${ok?'判断正确':'再想一步'}</b><br>${esc(why)}</div>`}
 function kerb(st){
  if(st.mode==='recall'){
@@ -49,8 +49,8 @@ const positive=[48,55,68,72,75,78,82,87,90,96],negative=[12,20,29,34,39,40,46,52
 function counts(t){const a=positive.filter(x=>x>=t).length,b=negative.filter(x=>x>=t).length;return {a,b,miss:10-a}}
 function metrics(st){const bio=st.metric==='bio',t=st.thresh??60,r=counts(t),recall=st.mode==='recall';
 return `<h2>${bio?'门禁相似度':'入侵检测分数'}</h2><div class="tabs">${btn('入侵检测','metric','ids',!bio?'selected':'')}${btn('生物认证','metric','bio',bio?'selected':'')}</div><div class="two"><div class="labScene"><label for="threshold">${bio?'相似度 ≥ 阈值时接受':'分数 ≥ 阈值时告警'} · <strong id="thrLabel">${t}</strong></label><input id="threshold" type="range" min="0" max="100" value="${t}" data-setting="threshold"><p class="meta">${bio?'本人尝试':'入侵事件'} 10 次：${positive.join('、')}<br>${bio?'冒用尝试':'正常事件'} 10 次：${negative.join('、')}</p></div><div>${recall?`<p>当前样本中，${bio?'冒用者被接受':'正常事件引发告警'}的比例是多少？</p><label>输入百分数 <input type="number" id="metricGuess" min="0" max="100" value="${esc(st.guess??'')}"> %</label><div class="actions">${btn('核对计算','mcheck','','primary')}</div>`:'<p>先预测提高阈值后的两种错误，再拖动滑块验证。</p>'}${!recall||st.mDone?`<div class="notice">${bio?'FAR 误接受率':'FPR 误报率'}：${r.b}/10 = ${r.b*10}%<div class="bar"><i style="width:${r.b*10}%"></i></div>${bio?'FRR 误拒绝率':'FNR 漏报率'}：${r.miss}/10 = ${r.miss*10}%<div class="bar alt"><i style="width:${r.miss*10}%"></i></div></div>`:''}${recall&&st.mDone?msg(Number(st.guess)===r.b*10,'分母是这 10 次'+(bio?'冒用尝试。':'真实正常访问。')):''}</div></div>`}
-function labAct(a,v){const st=labState(route()[1]);switch(a){
-case 'labmode':st.mode=v;break;case 'variant':st.v=Number(v);break;case 'kpick':(st.picks||={})[st.step||0]=Number(v);break;
+function labAct(a,v){const id=route()[1],st=labState(id);if(SIM_BY_ID.has(id))return applySimEvent(SIM_BY_ID.get(id),st,a,v);switch(a){
+case 'labmode':st.mode=v;break;case 'variantcase':st.variantCase=Number(v);break;case 'variant':if(st.variantCase)(st.variantPicks||={})[st.variantCase]=Number(v);else st.v=Number(v);break;case 'kpick':(st.picks||={})[st.step||0]=Number(v);break;
 case 'knext':if((st.step||0)===5)st.mode='recall';else st.step=(st.step||0)+1;break;case 'kback':st.step=Math.max(0,(st.step||0)-1);break;
 case 'kadd':(st.order||=[]).push(Number(v));st.kChecked=false;break;case 'kundo':(st.order||=[]).pop();st.kChecked=false;break;case 'kclear':st.order=[];st.kChecked=false;break;
 case 'kcheck':if((st.order||[]).length!==6||!st.written?.trim()){notify('请先排好六步，写下自己的解释。');return true}st.kChecked=true;break;
