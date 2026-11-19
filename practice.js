@@ -73,7 +73,7 @@ function normalize(raw){
  function getExam(e){if(!obj(e)||!['done','running'].includes(e.status)||!Number.isSafeInteger(e.start)||e.start<=0||e.end!==e.start+90*60000||!obj(e.answers)||!Number.isSafeInteger(e.submitted))bad();const a={};for(const [k,d] of Object.entries(e.answers)){if(!/^e(?:[1-9]|1\d|20)$/.test(k))bad();a[k]=getDraft(d,qmap[k])}return {status:e.status,start:e.start,end:e.end,submitted:e.submitted,answers:a}}
  if(raw.exam)res.exam=getExam(raw.exam);res.archives=raw.archives.map(getExam);
  if(typeof raw.last==='string'&&(focusRouteValid(raw.last)||LABS.some(l=>raw.last==='lab/'+l.id)))res.last=raw.last;
- if(typeof raw.last==='string'&&/^(?:(chapter|quiz)\/(?:[1-9]|1[01])|read\/(?:[1-9]|1[01])\/\d+|exam|design)$/.test(raw.last))res.last=raw.last;
+ if(typeof raw.last==='string'&&/^(?:(chapter|quiz)\/(?:[1-9]|1[01])|read\/(?:[1-9]|1[01])\/\d+|quiz\/(?:[1-9]|1[01])\/[1-7]|exam|design)$/.test(raw.last))res.last=raw.last;
  return res;
 }
 function draw(){clearInterval(timer);expire();const [p,id,sub]=route();const active=['chapter','read','quiz','design','focus'].includes(p)?'chapters':p;document.querySelector('#nav').innerHTML=nav.map(([k,ic,t])=>`<a href="#${k}" ${active===k?'class="active" aria-current="page"':''}>${ico(ic)}${t}</a>`).join('');document.querySelector('#crumb').textContent='研习室　/　'+(nav.find(n=>n[0]===active)?.[2]||'学习首页');
