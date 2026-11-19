@@ -19,17 +19,19 @@ function question(q,n,examMode=false){
  const pts=rubric(q),record=baseRec(q.id),source=focusQSource(q);
  const note=q.type==='多选'?' · 全部选对计分':'';
  const input=(isJudge(q)||!q.options.length)?`<label class="field" for="w-${q.id}">${isJudge(q)?'判断依据':'我的作答'}</label><textarea id="w-${q.id}" data-write="${q.id}" ${lock?'readonly':''} placeholder="先用自己的话写下理由或步骤">${esc(d.text)}</textarea>`:'';
- const refs=show?`<div class="answerBox"><b>${q.key?'参考答案　'+(isJudge(q)?'错误':q.key):'参考答案与得分依据'}</b><div class="written">${esc(q.ref)}</div></div>`:'';
+ const refs=show?`<div class="answerBox"><b>${q.key?'参考答案　'+(isJudge(q)?q.options['ABCD'.indexOf(q.key)]:q.key):'参考答案与得分依据'}</b><div class="written">${esc(q.ref)}</div></div>`:'';
  const criteria=show&&pts.length?`<div><b>逐项自评</b><small>　勾选自己原答案已写出的要点</small>${pts.map((r,i)=>`<label class="rubric"><input type="checkbox" data-rubric="${q.id}" value="${i}" ${d.checks.includes(i)?'checked':''} ${d.stage==='done'?'disabled':''}> ${esc(r.label)}（${r.weight} 分）</label>`).join('')}</div>`:'';
  const score=d.stage==='done'&&show?`<div class="tip"><b>本次 ${objective(q,d)+selfscore(q,d)} / ${q.pts} 分</b>　客观 ${objective(q,d)} · 自评 ${selfscore(q,d)}${!examMode&&record.length?`<br><small>首次 ${record[0].score} 分 · 最近${record.at(-1).mode} ${record.at(-1).score} 分</small>`:''}</div>`:'';
+ const coach=show?`<div class="coachSlot" id="coach-${q.id}" aria-live="polite">${questionCoach(q,d)}</div>`:'';
+ const leadWithCoach=d.stage==='done'||q.options.length>0;
  let actions='';
  if(!running){
-  if(!lock)actions=btn('提交作答','qsubmit',q.id,'primary');
+  if(!lock)actions=btn('提交作答','qsubmit',q.id,'primary')+btn('卡住了，按当前作答看讲解','qhelp',q.id,'mini');
   if(show&&d.stage!=='done'&&pts.length)actions=btn('保存自评分','grade',q.id,'primary');
   if(!examMode&&d.stage==='done')actions+=btn('重新闭卷作答','redo',q.id);
   if(!examMode||exDone)actions+=btn(S.mistakes[q.id]?'已加入错题本':'标记没把握','flag',q.id,'mini');
  }
- return `<section class="question" id="item-${q.id}"><span class="qLabel">${source} · 第 ${n} 题 · ${q.type} · ${q.pts} 分${note}</span><h3>${esc(q.body)}</h3>${opts(q,d,examMode?'exam':'study',lock)}${input}${refs}${criteria}${score}<div class="actions">${actions}</div>${!examMode&&['quiz','review'].includes(route()[0])?questionFocusLinks(q):''}</section>`;
+ return `<section class="question" id="item-${q.id}"><span class="qLabel">${source} · 第 ${n} 题 · ${q.type} · ${q.pts} 分${note}</span><h3>${esc(q.body)}</h3>${opts(q,d,examMode?'exam':'study',lock)}${input}${leadWithCoach?coach:''}${refs}${criteria}${leadWithCoach?'':coach}${score}<div class="actions">${actions}</div>${!examMode&&['quiz','review'].includes(route()[0])?questionFocusLinks(q):''}</section>`;
 }
 function freshExam(){const start=Date.now();return {status:'running',start,end:start+90*60000,answers:{},submitted:0}}
 function finishExam(){
@@ -39,10 +41,11 @@ function finishExam(){
 function expire(){if(S.exam?.status==='running'&&Date.now()>=S.exam.end){finishExam();return true}return false}
 function timeLeft(){const s=Math.max(0,Math.ceil((S.exam.end-Date.now())/1000));return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0')}
 function examSums(ex){const out=[0,0,0];G.exam.forEach((q,i)=>{const d=ex.answers[q.id];if(d?.stage==='done')out[i<12?0:i<18?1:2]+=objective(q,d)+selfscore(q,d)});return out}
+function coachedExamPage(){return `${pageTitle('模拟卷 · 边做边讲','使用同一套 20 道自编题。每题单独提交，当场核对；成绩记入练习记录。')}${A('exam','返回限时模拟','textBtn')}<div class="actions examLinks">${G.exam.map((q,i)=>btn(String(i+1),'scroll',q.id,'mini')).join('')}</div>${G.exam.map((q,i)=>question(q,i+1)).join('')}`}
 function examPage(){const ex=S.exam;const head=pageTitle('限时模拟卷','自编训练卷 · 90 分钟 · 100 分。正式考试的时长和分值以老师通知为准。');
- if(!ex)return `${head}<div class="box"><h2>给自己留一段完整的时间</h2><p>12 道选择（24 分）、6 道简答（36 分）、2 道设计（40 分）。开始后持续计时，刷新或暂时离开都可恢复草稿。到时自动交卷。</p>${btn('开始 90 分钟模拟','examstart','','primary')}</div>`;
+ if(!ex)return `${head}<div class="box"><h2>给自己留一段完整的时间</h2><p>12 道选择（24 分）、6 道简答（36 分）、2 道设计（40 分）。开始后持续计时，刷新或暂时离开都可恢复草稿。到时自动交卷。</p><div class="actions">${A('exam-study','边做边讲 · 逐题核对','btn primary')}${btn('开始 90 分钟模拟','examstart')}</div><small>限时模式交卷后统一显示解析。</small></div>`;
  const running=ex.status==='running',scores=examSums(ex),pending=G.exam.filter(q=>draft(q,true).stage==='grade').length;
- return `${head}<div class="toolbar"><div class="spread">${running?`<span>剩余时间　<strong class="clock" id="clock">${timeLeft()}</strong></span>${btn('交卷并查看解析','handin','','primary')}`:`<b>${pending?'已确认':'总分'} ${scores.reduce((a,b)=>a+b,0)} / 100 分</b><span>选择 ${scores[0]}/24 · 简答 ${scores[1]}/36 · 设计 ${scores[2]}/40</span>`}</div>${running?'':`<small>${pending?'还有 '+pending+' 道主观题待逐项自评。':'评分已完成。'}</small>`}</div><div class="actions examLinks">${G.exam.map((q,i)=>btn(String(i+1),'scroll',q.id,'mini')).join('')}</div>${G.exam.map((q,i)=>question(q,i+1,true)).join('')}${running?btn('交卷并查看解析','handin','','primary'):btn('保留本次记录，重新模拟','restart')}${S.archives.length?`<details class="day"><summary>历史模拟（${S.archives.length} 次）</summary>${S.archives.map(e=>`<p>${today(new Date(e.submitted))} · ${examSums(e).join(' + ')} 分</p>`).join('')}</details>`:''}`;
+ return `${head}<div class="toolbar"><div class="spread">${running?`<span>剩余时间　<strong class="clock" id="clock">${timeLeft()}</strong></span>${btn('交卷并查看解析','handin','','primary')}`:`<b>${pending?'已确认':'总分'} ${scores.reduce((a,b)=>a+b,0)} / 100 分</b><span>选择 ${scores[0]}/24 · 简答 ${scores[1]}/36 · 设计 ${scores[2]}/40</span>`}</div>${running?`<small>需要当场讲解时，可打开${A('exam-study','同卷逐题练习','inline')}。原模拟继续计时，两套草稿独立保存。</small>`:`<small>${pending?'还有 '+pending+' 道主观题待逐项自评。':'评分已完成。'}　${A('exam-study','用边做边讲模式复练','inline')}</small>`}</div><div class="actions examLinks">${G.exam.map((q,i)=>btn(String(i+1),'scroll',q.id,'mini')).join('')}</div>${G.exam.map((q,i)=>question(q,i+1,true)).join('')}${running?btn('交卷并查看解析','handin','','primary'):btn('保留本次记录，重新模拟','restart')}${S.archives.length?`<details class="day"><summary>历史模拟（${S.archives.length} 次）</summary>${S.archives.map(e=>`<p>${today(new Date(e.submitted))} · ${examSums(e).join(' + ')} 分</p>`).join('')}</details>`:''}`;
 }
 function reviewPage(id){
  if(id&&qmap[id]){const q=qmap[id];return `${pageTitle('错题重测')}<p>${A('review','返回错题本','textBtn')}</p>${question(q,q.id.match(/\d+$/)[0])}`}
@@ -73,22 +76,36 @@ function normalize(raw){
  function getExam(e){if(!obj(e)||!['done','running'].includes(e.status)||!Number.isSafeInteger(e.start)||e.start<=0||e.end!==e.start+90*60000||!obj(e.answers)||!Number.isSafeInteger(e.submitted))bad();const a={};for(const [k,d] of Object.entries(e.answers)){if(!/^e(?:[1-9]|1\d|20)$/.test(k))bad();a[k]=getDraft(d,qmap[k])}return {status:e.status,start:e.start,end:e.end,submitted:e.submitted,answers:a}}
  if(raw.exam)res.exam=getExam(raw.exam);res.archives=raw.archives.map(getExam);
  if(typeof raw.last==='string'&&(focusRouteValid(raw.last)||LABS.some(l=>raw.last==='lab/'+l.id)))res.last=raw.last;
- if(typeof raw.last==='string'&&/^(?:(chapter|quiz)\/(?:[1-9]|1[01])|read\/(?:[1-9]|1[01])\/\d+|quiz\/(?:[1-9]|1[01])\/[1-7]|exam|design)$/.test(raw.last))res.last=raw.last;
+ if(typeof raw.last==='string'&&/^(?:(chapter|quiz)\/(?:[1-9]|1[01])|read\/(?:[1-9]|1[01])\/\d+|quiz\/(?:[1-9]|1[01])\/[1-7]|exam(?:-study)?|design)$/.test(raw.last))res.last=raw.last;
  return res;
 }
-function draw(){clearInterval(timer);expire();const [p,id,sub]=route();const active=['chapter','read','quiz','design','focus'].includes(p)?'chapters':p;document.querySelector('#nav').innerHTML=nav.map(([k,ic,t])=>`<a href="#${k}" ${active===k?'class="active" aria-current="page"':''}>${ico(ic)}${t}</a>`).join('');document.querySelector('#crumb').textContent='研习室　/　'+(nav.find(n=>n[0]===active)?.[2]||'学习首页');
- if(focusRouteValid(route().join('/'))||['chapter','read','quiz','design','exam'].includes(p)||(p==='lab'&&id)){S.last=route().join('/');save()}
+function draw(){clearInterval(timer);expire();const [p,id,sub]=route();const active=['chapter','read','quiz','design','focus'].includes(p)?'chapters':p==='exam-study'?'exam':p;document.querySelector('#nav').innerHTML=nav.map(([k,ic,t])=>`<a href="#${k}" ${active===k?'class="active" aria-current="page"':''}>${ico(ic)}${t}</a>`).join('');document.querySelector('#crumb').textContent='研习室　/　'+(nav.find(n=>n[0]===active)?.[2]||'学习首页');
+ if(focusRouteValid(route().join('/'))||['chapter','read','quiz','design','exam','exam-study'].includes(p)||(p==='lab'&&id)){S.last=route().join('/');save()}
  const c=G.chapters[Number(id)-1];let s;
- switch(p){case 'focus':s=focusPage(FOCUS_BY_ID.get(id),sub==='practice');break;case 'chapter':case 'read':case 'quiz':s=c?chPage(c,p,sub):chapterList();break;case 'chapters':s=chapterList();break;case 'lab':s=labPage(id);break;case 'plan':s=plan();break;case 'audio':s=audioPage(FOCUS_BY_ID.get(id));break;case 'exam':s=examPage();break;case 'backup':s=backupPage();break;case 'review':s=reviewPage(id);break;case 'design':s=design();break;default:s=home()}
+ switch(p){case 'focus':s=focusPage(FOCUS_BY_ID.get(id),sub==='practice');break;case 'chapter':case 'read':case 'quiz':s=c?chPage(c,p,sub):chapterList();break;case 'chapters':s=chapterList();break;case 'lab':s=labPage(id);break;case 'plan':s=plan();break;case 'audio':s=audioPage(FOCUS_BY_ID.get(id));break;case 'exam-study':s=coachedExamPage();break;case 'exam':s=examPage();break;case 'backup':s=backupPage();break;case 'review':s=reviewPage(id);break;case 'design':s=design();break;default:s=home()}
  view.innerHTML=s;view.querySelectorAll('table').forEach(t=>{const wrap=document.createElement('div');wrap.className='tableWrap';t.replaceWith(wrap);wrap.append(t)});const audio=document.querySelector('#audioPlayer');if(audioURL&&audio){audio.onloadedmetadata=()=>{audio.currentTime=audioAt};audio.ontimeupdate=()=>audioAt=audio.currentTime}
  if(S.exam?.status==='running')timer=setInterval(()=>{if(expire()){draw();notify('模拟时间已到，已保存并交卷。');return}const clock=document.querySelector('#clock');if(clock)clock.textContent=timeLeft()},500);
+}
+function showSubmittedQuestion(q,d){
+ redrawQuestion(q.id);
+ const card=document.getElementById('item-'+q.id);
+ const target=card?.querySelector(d.stage==='grade'&&!q.options.length?'.answerBox':'.coach, .answerBox');
+ bringFeedbackIntoView(target);
+}
+function bringFeedbackIntoView(target){
+ if(!target)return;
+ const box=target.getBoundingClientRect();
+ if(box.top<0||box.top>window.innerHeight*0.70)target.scrollIntoView({block:'start',behavior:'instant'});
 }
 function redrawQuestion(id){const el=document.getElementById('item-'+id);if(!el){draw();return}const top=el.getBoundingClientRect().top;draw();const next=document.getElementById('item-'+id);if(next)window.scrollBy({top:next.getBoundingClientRect().top-top,behavior:'instant'})}
 document.addEventListener('click',e=>{
  const b=e.target.closest('[data-a]');if(!b)return;const a=b.dataset.a,v=b.dataset.v;const [p,id]=route();if(expire()){draw();notify('时间已到，已交卷。');return}
- if(p==='lab'&&id&&labAct(a,v))return;
+ if(p==='lab'&&id&&labAct(a,v)){
+  if(['variant','kpick','kadd','kcheck','pktCheck','fpick','mcheck','simpredict'].includes(a))bringFeedbackIntoView(view.querySelector('.labPanel .coach'));
+  return;
+ }
  const ex=p==='exam',q=qmap[v];
- if(a==='case'){S.cases[id]=Number(v);save();draw();return}
+ if(a==='case'){S.cases[id]=Number(v);save();draw();bringFeedbackIntoView(view.querySelector('.labPanel .coach'));return}
  if(a==='scroll'){document.getElementById('item-'+v)?.scrollIntoView();return}
  if(a==='seek'){if(!audioURL){notify('请先选择设备上的课堂录音。');document.querySelector('#audioFile').focus();return}const player=document.querySelector('#audioPlayer');audioAt=Number(v);player.currentTime=audioAt;player.play().catch(()=>notify('请点击播放器的播放按钮。'));return}
  if(a==='examstart'||a==='restart'){if(a==='restart'){if(!confirm('保留本次模拟记录，开启新一轮 90 分钟模拟？'))return;S.archives.push(S.exam)}S.exam=freshExam();save();draw();window.scrollTo(0,0);return}
@@ -99,8 +116,9 @@ document.addEventListener('click',e=>{
  if(a==='reviewQ'){const old=S.drafts[v];if(!old||old.stage!=='edit')S.drafts[v]=emptyDraft();save();go('review/'+v);return}
  if(a==='redo'){S.drafts[v]=emptyDraft();save();redrawQuestion(v);return}
  const d=draft(q,ex);
- if(a==='qsubmit'){if(q.options.length&&!d.choices.length||rubric(q).length&&!d.text.trim()){notify('请先完成选择与所需的书面回答。暂时不会时可写下卡住的地方。');return}if(rubric(q).length)d.stage='grade';else complete(q,d);save();redrawQuestion(v);return}
- if(a==='grade'){if(d.stage!=='done')complete(q,d,ex);save();redrawQuestion(v)}
+ if(a==='qhelp'&&!ex&&d.stage==='edit'){if(rubric(q).length&&d.text.trim())d.stage='grade';else complete(q,d);save();showSubmittedQuestion(q,d);return}
+ if(a==='qsubmit'){if(q.options.length&&!d.choices.length||rubric(q).length&&!d.text.trim()){notify('请先完成选择与所需的书面回答。暂时不会时可写下卡住的地方。');return}if(rubric(q).length)d.stage='grade';else complete(q,d);save();showSubmittedQuestion(q,d);return}
+ if(a==='grade'){if(d.stage!=='done')complete(q,d,ex);save();showSubmittedQuestion(q,d)}
 });
 document.addEventListener('input',e=>{const t=e.target;if(expire()){draw();return}
  if(t.dataset.write){draft(qmap[t.dataset.write],route()[0]==='exam').text=t.value;save()}
@@ -110,7 +128,7 @@ document.addEventListener('input',e=>{const t=e.target;if(expire()){draw();retur
 });
 document.addEventListener('change',async e=>{const t=e.target;if(expire()){draw();return}
  if(t.dataset.choice){const q=qmap[t.dataset.choice],d=draft(q,route()[0]==='exam');d.choices=q.type==='多选'?toggle(d.choices,t.value):[t.value];save();return}
- if(t.dataset.rubric){const d=draft(qmap[t.dataset.rubric],route()[0]==='exam');d.checks=toggle(d.checks,Number(t.value));save();return}
+ if(t.dataset.rubric){const q=qmap[t.dataset.rubric],d=draft(q,route()[0]==='exam');d.checks=toggle(d.checks,Number(t.value));save();const slot=document.getElementById('coach-'+q.id);if(slot){const open=slot.querySelector('details')?.open;slot.innerHTML=questionCoach(q,d);const faq=slot.querySelector('details');if(faq&&open)faq.open=true}return}
  if(t.dataset.section){go('read/'+t.dataset.section+'/'+t.value);return}
  if(t.dataset.setting){labAct(t.dataset.setting,t.value);return}
  if(t.id==='audioFile'&&t.files[0]){if(audioURL)URL.revokeObjectURL(audioURL);audioURL=URL.createObjectURL(t.files[0]);const topic=FOCUS_BY_ID.get(route()[1]);audioAt=topic?clipStart(topic):0;audioName=t.files[0].name;draw();return}

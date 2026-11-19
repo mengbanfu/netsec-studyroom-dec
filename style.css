@@ -15,3 +15,9 @@
 @media(max-width:880px){.simGrid{grid-template-columns:1fr;gap:15px}}@media(max-width:420px){.simTrace{padding:12px}.simStrip{gap:4px 6px}.simSteps button{padding:8px}.simKnob select{max-width:100%}}
 
 .labBasis{margin:16px 0}.labBasis h2{font-size:20px}.labBasis details{margin:14px 0 0}.labBasis details p{margin:8px 0}.labBasis details a{white-space:nowrap}
+.coach,.answerBox{scroll-margin-top:16px}
+.coach{margin:14px 0 10px;padding:14px 16px;border-left:4px solid #a9651d;border-radius:0 8px 8px 0;background:#fff8e9;color:#362d22;overflow-wrap:anywhere}
+.coach h4{margin:0 0 7px;font-size:1.02rem;color:#694519}.coach p{margin:6px 0;line-height:1.7}
+.coachFaq{border-top:1px solid #e6d6ba;margin:10px 0 6px;padding:8px 0 2px}
+.coachFaq summary{cursor:pointer;font-weight:600;line-height:1.6;color:#604016}.coach .textBtn{font-size:.88rem}
+.coachSlot:empty{display:none}@media(max-width:600px){.coach{padding:12px;margin:12px 0}.coach p{line-height:1.65}}

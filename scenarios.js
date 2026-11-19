@@ -147,7 +147,7 @@ function simChallenge(sim,st,mode){
  const tasks=sim[mode],i=st[mode+'At']??0,t=tasks[i],key=mode+'-'+i,answer=st.answers?.[key],marked=Number.isInteger(answer),correct=answer===t.answer;
  const passed=tasks.filter((v,j)=>st.answers?.[mode+'-'+j]===v.answer).length;
  const conditions=sim.controls.map((c,j)=>`<div><dt>${esc(c.label)}</dt><dd>${esc(c.options[t.inputs[j]])}</dd></div>`).join('');
- return `<div class="simQuest"><div class="spread"><h2>${mode==='recall'?'闭卷预测':'换个场景'}</h2><span class="meta">当前 ${i+1} / ${tasks.length} · 当前选对 ${passed} 题（含订正）</span></div><dl class="simFacts">${conditions}</dl><h3>${esc(t.prompt)}</h3><div class="simAnswers">${t.options.map((o,n)=>btn(esc(o),'simpredict',n,answer===n?'selected':'')).join('')}</div>${marked?msg(correct,t.why):''}<div class="actions">${i?btn('上一题','simcase',i-1):''}${i+1<tasks.length?btn('下一题','simcase',i+1):mode==='recall'?btn('进入变式','labmode','variant','primary'):''}${marked?btn('遮住答案重做','simretry','','mini'):''}</div></div>${marked?simTrace(sim,t.inputs,st.stage??0):''}`;
+ return `<div class="simQuest"><div class="spread"><h2>${mode==='recall'?'闭卷预测':'换个场景'}</h2><span class="meta">当前 ${i+1} / ${tasks.length} · 当前选对 ${passed} 题（含订正）</span></div><dl class="simFacts">${conditions}</dl><h3>${esc(t.prompt)}</h3><div class="simAnswers">${t.options.map((o,n)=>btn(esc(o),'simpredict',n,answer===n?'selected':'')).join('')}</div>${marked?msg(correct,t.why)+(correct?'':simCoach(sim,t,mode,i,answer)):''}<div class="actions">${i?btn('上一题','simcase',i-1):''}${i+1<tasks.length?btn('下一题','simcase',i+1):mode==='recall'?btn('进入变式','labmode','variant','primary'):''}${marked?btn('遮住答案重做','simretry','','mini'):''}</div></div>${marked?simTrace(sim,t.inputs,st.stage??0):''}`;
 }
 function renderSimulation(sim,st,mode){return `${mode==='guided'?simExplore(sim,st):simChallenge(sim,st,mode)}${focusPracticeLinks(sim)}`}
 function applySimEvent(sim,st,a,v){
@@ -186,5 +186,5 @@ const EXTRA_VARIANTS={
 function oldVariant(lab,st){
  const cases=[VAR[lab.id],...EXTRA_VARIANTS[lab.id]],i=st.variantCase??0;
  const [prompt,options,answer,why]=cases[i],pick=i===0?st.v:st.variantPicks?.[i];
- return `<div class="spread"><h2>把原理用到新情景</h2><small>变式 ${i+1} / ${cases.length}</small></div><p>${esc(prompt)}</p>${options.map((x,j)=>btn(esc(x),'variant',j,pick===j?'selected':'')).join(' ')}${Number.isInteger(pick)?msg(pick===answer,why):''}<div class="actions">${i?btn('上一题','variantcase',i-1):''}${i+1<cases.length?btn('下一题','variantcase',i+1):''}</div>`;
+ return `<div class="spread"><h2>把原理用到新情景</h2><small>变式 ${i+1} / ${cases.length}</small></div><p>${esc(prompt)}</p>${options.map((x,j)=>btn(esc(x),'variant',j,pick===j?'selected':'')).join(' ')}${Number.isInteger(pick)?msg(pick===answer,why)+(pick===answer?'':comparisonCoach(options,pick,answer,variantSteps[lab.id][i],variantSections[lab.id][i],lab.id==='ipsec'&&i===1?specificFaq.c4q4:undefined)):''}<div class="actions">${i?btn('上一题','variantcase',i-1):''}${i+1<cases.length?btn('下一题','variantcase',i+1):''}</div>`;
 }
